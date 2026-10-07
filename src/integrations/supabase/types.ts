@@ -14,6 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      blood_units: {
+        Row: {
+          abo_group: string
+          collection_date: string
+          component: string
+          created_at: string
+          discard_reason: string | null
+          expiry_at: string
+          id: string
+          rh_d: string
+          status: string
+          storage_location: string | null
+          unit_number: string
+          updated_at: string
+          user_id: string
+          volume_ml: number | null
+        }
+        Insert: {
+          abo_group: string
+          collection_date: string
+          component: string
+          created_at?: string
+          discard_reason?: string | null
+          expiry_at: string
+          id?: string
+          rh_d: string
+          status?: string
+          storage_location?: string | null
+          unit_number: string
+          updated_at?: string
+          user_id?: string
+          volume_ml?: number | null
+        }
+        Update: {
+          abo_group?: string
+          collection_date?: string
+          component?: string
+          created_at?: string
+          discard_reason?: string | null
+          expiry_at?: string
+          id?: string
+          rh_d?: string
+          status?: string
+          storage_location?: string | null
+          unit_number?: string
+          updated_at?: string
+          user_id?: string
+          volume_ml?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blood_units_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          abo_group: string | null
+          created_at: string
+          date_of_birth: string | null
+          father_or_husband_name: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          mr_number: string
+          rh_d: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          abo_group?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          father_or_husband_name?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          mr_number: string
+          rh_d?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          abo_group?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          father_or_husband_name?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          mr_number?: string
+          rh_d?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -40,6 +149,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      wards: {
+        Row: {
+          created_at: string
+          extension_no: string | null
+          id: string
+          updated_at: string
+          user_id: string
+          ward_code: string | null
+          ward_name: string
+        }
+        Insert: {
+          created_at?: string
+          extension_no?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+          ward_code?: string | null
+          ward_name: string
+        }
+        Update: {
+          created_at?: string
+          extension_no?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+          ward_code?: string | null
+          ward_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
