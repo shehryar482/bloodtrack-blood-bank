@@ -11,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { StoreProvider } from "@/lib/store";
+import { AuthProvider } from "@/lib/auth";
 import { AppShell, Banner } from "@/components/bt/AppShell";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
@@ -124,12 +125,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <StoreProvider>
+      <AuthProvider><StoreProvider>
         <AppShell>
           <Outlet />
         </AppShell>
         <Toaster richColors position="top-right" />
-      </StoreProvider>
+      </StoreProvider></AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -35,8 +35,13 @@ interface Store {
 const g = globalThis as { __btStoreCtx?: React.Context<Store | null> };
 const Ctx = (g.__btStoreCtx ??= createContext<Store | null>(null));
 
+const PROFILE_TO_ROLE: Record<string, Role> = { ward: "ward", technologist: "tech", incharge: "incharge" };
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role | null>(null);
+  const { profile } = useAuth();
+  // Role comes from the signed-in user's profile, not a mock switcher.
+  const role: Role | null = profile ? PROFILE_TO_ROLE[profile.role] ?? null : null;
+  const name = profile?.full_name ?? "";
   const [ward, setWard] = useState(WARDS[0]);
   const [units, setUnits] = useState(initialUnits);
   const [requests, setRequests] = useState(initialRequests);
@@ -50,9 +55,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value: Store = {
     role, ward,
-    user: role ? CURRENT_USER[role] : "",
-    actor: role ? `${CURRENT_USER[role]} (${ROLE_LABEL[role]})` : "",
-    setRole: (r, w) => { setRoleState(r); if (w) setWard(w); },
+    user: name,
+    actor: role ? `${name} (${ROLE_LABEL[role]})` : "",
+    setRole: (_r, w) => { if (w) setWard(w); },
     units, requests, users, settings,
     updateUnit: (id, fn) => setUnits((us) => us.map((u) => (u.id === id ? fn(u) : u))),
     updateRequest: (id, fn) => setRequests((rs) => rs.map((r) => (r.id === id ? fn(r) : r))),
