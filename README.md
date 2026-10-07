@@ -1,24 +1,11 @@
-# bloodtrack-blood-bank
+# BloodTrack
 
-Implement exactly the screenshot and nothing else
+Blood request and stock app for a hospital blood bank. Coursework for Vibe Coding, MBA (72 CH), SZABIST Islamabad.
 
-This project was built with [Lovable](https://lovable.dev).
+Assignment 1: planning document and a frontend skeleton built in Lovable with mock data.
 
-## Build with Lovable
+Assignment 2: GitHub sync, Supabase sign-up and sign-in, real database tables with Row Level Security, and live data in place of the mock data.
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/8d8344ed-d29a-4ca3-924b-49654678d4aa).
+Built with Lovable (React, TypeScript, Tailwind) and Supabase.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+Author: Sardar Shehryar Shabbir (24298)
