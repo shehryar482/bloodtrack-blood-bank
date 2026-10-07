@@ -14,6 +14,94 @@ export type Database = {
   }
   public: {
     Tables: {
+      blood_requests: {
+        Row: {
+          approval_mode: string | null
+          approved_at: string | null
+          approved_by: string | null
+          archive_reason: string | null
+          bed_no: string | null
+          created_at: string
+          id: string
+          indication: string
+          is_archived: boolean
+          is_uncrossmatched: boolean
+          patient_id: string
+          request_code: string
+          requesting_doctor: string
+          required_by: string | null
+          status: string
+          updated_at: string
+          urgency: string
+          user_id: string
+          ward_id: string | null
+        }
+        Insert: {
+          approval_mode?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archive_reason?: string | null
+          bed_no?: string | null
+          created_at?: string
+          id?: string
+          indication: string
+          is_archived?: boolean
+          is_uncrossmatched?: boolean
+          patient_id: string
+          request_code: string
+          requesting_doctor: string
+          required_by?: string | null
+          status?: string
+          updated_at?: string
+          urgency?: string
+          user_id?: string
+          ward_id?: string | null
+        }
+        Update: {
+          approval_mode?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archive_reason?: string | null
+          bed_no?: string | null
+          created_at?: string
+          id?: string
+          indication?: string
+          is_archived?: boolean
+          is_uncrossmatched?: boolean
+          patient_id?: string
+          request_code?: string
+          requesting_doctor?: string
+          required_by?: string | null
+          status?: string
+          updated_at?: string
+          urgency?: string
+          user_id?: string
+          ward_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blood_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blood_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blood_requests_ward_id_fkey"
+            columns: ["ward_id"]
+            isOneToOne: false
+            referencedRelation: "wards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blood_units: {
         Row: {
           abo_group: string
@@ -66,6 +154,138 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "blood_units_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crossmatch_tests: {
+        Row: {
+          antibody_screen: string
+          created_at: string
+          id: string
+          patient_abo: string | null
+          patient_rh: string | null
+          request_id: string
+          result: string
+          tested_at: string
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          antibody_screen?: string
+          created_at?: string
+          id?: string
+          patient_abo?: string | null
+          patient_rh?: string | null
+          request_id: string
+          result: string
+          tested_at?: string
+          unit_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          antibody_screen?: string
+          created_at?: string
+          id?: string
+          patient_abo?: string | null
+          patient_rh?: string | null
+          request_id?: string
+          result?: string
+          tested_at?: string
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crossmatch_tests_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "blood_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crossmatch_tests_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "blood_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crossmatch_tests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issue_records: {
+        Row: {
+          created_at: string
+          crossmatch_id: string | null
+          id: string
+          issued_at: string
+          issued_uncrossmatched: boolean
+          received_by: string
+          request_id: string
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          crossmatch_id?: string | null
+          id?: string
+          issued_at?: string
+          issued_uncrossmatched?: boolean
+          received_by: string
+          request_id: string
+          unit_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          crossmatch_id?: string | null
+          id?: string
+          issued_at?: string
+          issued_uncrossmatched?: boolean
+          received_by?: string
+          request_id?: string
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_records_crossmatch_id_fkey"
+            columns: ["crossmatch_id"]
+            isOneToOne: false
+            referencedRelation: "crossmatch_tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_records_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "blood_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_records_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: true
+            referencedRelation: "blood_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_records_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -149,6 +369,54 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      request_items: {
+        Row: {
+          component: string
+          created_at: string
+          id: string
+          quantity_issued: number
+          quantity_requested: number
+          request_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          component: string
+          created_at?: string
+          id?: string
+          quantity_issued?: number
+          quantity_requested: number
+          request_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          component?: string
+          created_at?: string
+          id?: string
+          quantity_issued?: number
+          quantity_requested?: number
+          request_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "blood_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wards: {
         Row: {
