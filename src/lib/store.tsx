@@ -1,7 +1,8 @@
 import type React from "react";
+import { useAuth } from "./auth";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import {
-  initialRequests, initialUnits, initialUsers, NOW, WARDS, COMPONENTS, CURRENT_USER, ROLE_LABEL,
+  initialRequests, initialUnits, initialUsers, NOW, WARDS, COMPONENTS, ROLE_LABEL,
   type BloodRequest, type Unit, type Role, type StaffUser, type Component, type BloodGroup,
 } from "./mock-data";
 
