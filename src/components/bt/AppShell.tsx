@@ -1,13 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  LayoutDashboard, FilePlus2, ClipboardList, Boxes, Send, Clock, BarChart3, Settings, ShieldCheck, Menu, Droplet, Bell,
+  LayoutDashboard, FilePlus2, ClipboardList, Boxes, Send, Clock, BarChart3, Settings, ShieldCheck, Menu, Droplet, Bell, LogOut, UserRound,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStore, isExpiring } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { ROLE_LABEL, HOSPITAL, type Role } from "@/lib/mock-data";
-import { RoleSwitcher } from "./RoleSwitcher";
 import { EmptyState } from "./ui";
 
 interface NavItem { to: string; label: string | ((r: Role) => string); icon: typeof Boxes; roles: Role[] }
@@ -71,15 +73,27 @@ export function RoleGate({ roles, children }: { roles: Role[]; children: ReactNo
   return <>{children}</>;
 }
 
+const PUBLIC_PATHS = ["/", "/signin", "/signup"];
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const { role, ward, user, units, settings } = useStore();
+  const { role, ward, setRole, units, settings } = useStore();
+  const { profile, loading, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const expiringCount = units.filter((u) => isExpiring(u, settings)).length;
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (path === "/") {
+  async function handleSignOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await signOut();
+    navigate({ to: "/", replace: true });
+  }
+
+  if (PUBLIC_PATHS.includes(path)) {
     return <div className="min-h-screen"><Banner />{children}</div>;
   }
 
@@ -110,11 +124,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
             <div className={role ? "md:hidden" : ""}><Brand /></div>
             <div className="ml-auto flex flex-wrap items-center gap-3">
-              {role && (
-                <div className="hidden text-right text-xs lg:block">
-                  <div className="font-medium">{user}</div>
-                  <div className="text-muted-foreground">{ROLE_LABEL[role]}{role === "ward" ? ` · ${ward}` : ""}</div>
-                </div>
+              {mounted && role === "ward" && (
+                <Select value={ward} onValueChange={(w) => setRole("ward", w)}>
+                  <SelectTrigger className="h-9 w-[170px]" aria-label="Ward"><SelectValue /></SelectTrigger>
+                  <SelectContent>{settings.wards.map((w) => <SelectItem key={w} value={w}>{w}</SelectItem>)}</SelectContent>
+                </Select>
               )}
               {mounted && (role === "tech" || role === "incharge") && (
                 <Button asChild variant="ghost" size="icon" className="relative" aria-label={`${expiringCount} units expiring soon`}>
@@ -124,12 +138,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 </Button>
               )}
-              <RoleSwitcher />
+              {mounted && profile && (
+                <Link to="/profile" className="text-right text-xs hover:underline">
+                  <div className="font-medium">{profile.full_name}</div>
+                  {role && <div className="hidden text-muted-foreground sm:block">{ROLE_LABEL[role]}</div>}
+                </Link>
+              )}
+              <Button variant="outline" size="sm" onClick={handleSignOut}><LogOut />Sign Out</Button>
             </div>
           </header>
           <main className="mx-auto max-w-7xl p-4 sm:p-6">
-            {!mounted ? null : role ? children : (
-              <EmptyState title="Choose a role to continue" description="This prototype uses a mock role switcher instead of login." action={<Button asChild><Link to="/">Select role</Link></Button>} />
+            {!mounted || loading ? null : role ? children : (
+              <EmptyState title="Your profile could not be loaded" description="Try signing out and in again." />
             )}
           </main>
         </div>
