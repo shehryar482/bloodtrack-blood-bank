@@ -9,3 +9,4 @@ Assignment 2: GitHub sync, Supabase sign-up and sign-in, real database tables wi
 Built with Lovable (React, TypeScript, Tailwind) and Supabase.
 
 Author: Sardar Shehryar Shabbir (24298)
+Database: Supabase (Postgres), with Row Level Security so each user can only reach their own records.
