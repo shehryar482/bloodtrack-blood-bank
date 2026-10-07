@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertOctagon, Clock, ClipboardList, Droplet } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { AlertOctagon, Clock, ClipboardList, Database, Droplet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatCard, StatusBadge, EmptyState, fmt, expiresIn } from "@/components/bt/ui";
-import { useStore, inStock, hoursLeft, isExpiring, ACTIVE_STATUSES, sortRequests } from "@/lib/store";
-import { BLOOD_GROUPS, COMPONENTS } from "@/lib/mock-data";
 import { StockGrid } from "@/components/bt/StockGrid";
+import { useUnits, useRequests, usePatients, useWards, useRefresh, inStock, hoursLeft, isExpiring, sortRequests, unitGroup, loadSampleData } from "@/lib/db";
+import { CLOSED_STATUSES } from "@/lib/constants";
 import { seo } from "@/lib/seo";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => seo("Dashboard", "Live blood stock by group and component, pending requests and expiry alerts."),
@@ -14,68 +15,98 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function Dashboard() {
-  const { role, ward, units, requests, settings } = useStore();
-  const scoped = role === "ward" ? requests.filter((r) => r.ward === ward) : requests;
-  const active = scoped.filter((r) => ACTIVE_STATUSES.includes(r.status) || r.status === "Ready for Issue").sort(sortRequests);
-  const emergencies = scoped.filter((r) => r.urgency === "Emergency" && !["Issued", "Cancelled", "Rejected"].includes(r.status));
-  const expiring = units.filter((u) => isExpiring(u, settings));
-  const total = units.filter(inStock).length;
-  const lowCount = BLOOD_GROUPS.flatMap((g) => COMPONENTS.map((c) => units.filter((u) => u.group === g && u.component === c && inStock(u)).length <= settings.minStock[c])).filter(Boolean).length;
+  const units = useUnits();
+  const requests = useRequests();
+  const patients = usePatients();
+  const wards = useWards();
+  const refresh = useRefresh();
+  const [seeding, setSeeding] = useState(false);
+
+  if (units.isLoading || requests.isLoading || patients.isLoading || wards.isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+  const err = units.error || requests.error || patients.error || wards.error;
+  if (err) return <EmptyState title="Could not load data" description={err.message} />;
+
+  const u = units.data ?? [];
+  const r = (requests.data ?? []).filter((x) => !x.is_archived);
+  const isEmpty = u.length === 0 && r.length === 0 && (patients.data ?? []).length === 0 && (wards.data ?? []).length === 0;
+
+  const seed = async () => {
+    setSeeding(true);
+    try {
+      await loadSampleData();
+      await refresh();
+      toast.success("Sample data loaded", { description: "8 wards, 6 patients and 20 blood units added." });
+    } catch (e) {
+      toast.error("Could not load sample data", { description: (e as Error).message });
+    } finally { setSeeding(false); }
+  };
+
+  const pending = r.filter((x) => !CLOSED_STATUSES.includes(x.status)).sort(sortRequests);
+  const emergencies = pending.filter((x) => x.urgency === "Emergency");
+  const expiring = u.filter(isExpiring).sort((a, b) => a.expiry_at.localeCompare(b.expiry_at));
+  const total = u.filter(inStock).length;
 
   return (
     <div>
       <PageHeader
-        title={role === "ward" ? `Dashboard · ${ward}` : "Dashboard"}
-        description="Stock status as of 02 Oct 2026, 12:00"
-        actions={role === "ward" ? <Button asChild variant="brand"><Link to="/requests/new">New request</Link></Button> : undefined}
+        title="Dashboard"
+        description={`Stock status as of ${fmt(new Date().toISOString())}`}
+        actions={<Button asChild variant="brand"><Link to="/requests/new">New request</Link></Button>}
       />
+      {isEmpty && (
+        <div className="mb-6">
+          <EmptyState
+            title="No data yet"
+            description="Add your own wards, patients and units, or load fictional sample data to try the app."
+            action={<Button variant="brand" onClick={seed} disabled={seeding}><Database className="h-4 w-4" />{seeding ? "Loading sample data..." : "Load sample data"}</Button>}
+          />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Units in stock" value={total} icon={<Droplet className="h-4 w-4" />} hint={`${lowCount} group/component combos low`} to={role === "ward" ? undefined : "/inventory"} />
-        <StatCard label={role === "ward" ? "My open requests" : "Pending requests"} value={active.length} icon={<ClipboardList className="h-4 w-4" />} to="/requests" />
+        <StatCard label="Units available" value={total} icon={<Droplet className="h-4 w-4" />} to="/inventory" />
+        <StatCard label="Pending requests" value={pending.length} icon={<ClipboardList className="h-4 w-4" />} to="/requests" />
         <StatCard label="Emergencies" value={emergencies.length} tone={emergencies.length ? "brand" : undefined} icon={<AlertOctagon className="h-4 w-4" />} to="/requests" />
-        {role === "ward"
-          ? <StatCard label="Ready to collect" value={scoped.filter((r) => r.status === "Ready for Issue").length} icon={<Clock className="h-4 w-4" />} />
-          : <StatCard label="Expiring soon" value={expiring.length} tone={expiring.length ? "warning" : undefined} icon={<Clock className="h-4 w-4" />} to="/expiry" />}
+        <StatCard label="Expiring soon" value={expiring.length} tone={expiring.length ? "warning" : undefined} icon={<Clock className="h-4 w-4" />} to="/expiry" />
       </div>
 
-      <h2 className="mb-3 mt-8 font-semibold">Stock by group and component</h2>
-      <StockGrid />
+      <h2 className="mb-3 mt-8 font-semibold">Available units by group and component</h2>
+      <StockGrid units={u} />
       <p className="mt-2 text-xs text-muted-foreground">Amber tiles are at or below the minimum stock level. Only available, unexpired units are counted.</p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="mb-3 font-semibold">{role === "ward" ? "My requests" : "Pending requests"}</h2>
-          {active.length === 0 ? (
-            <EmptyState title="No open requests" action={role === "ward" ? <Button asChild variant="outline"><Link to="/requests/new">Create a request</Link></Button> : undefined} />
+          <h2 className="mb-3 font-semibold">Pending and emergency requests</h2>
+          {pending.length === 0 ? (
+            <EmptyState title="No open requests" action={<Button asChild variant="outline"><Link to="/requests/new">Create a request</Link></Button>} />
           ) : (
             <div className="divide-y rounded-xl border bg-card shadow-sm">
-              {active.slice(0, 6).map((r) => (
-                <Link key={r.id} to="/requests/$requestId" params={{ requestId: r.id }} className="flex items-center justify-between gap-3 p-3 hover:bg-secondary/50">
+              {pending.slice(0, 8).map((x) => (
+                <Link key={x.id} to="/requests/$requestId" params={{ requestId: x.id }} className="flex items-center justify-between gap-3 p-3 hover:bg-secondary/50">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{r.patient.name} <span className="text-muted-foreground">· {r.id}</span></div>
-                    <div className="text-xs text-muted-foreground">{r.ward} · by {fmt(r.requiredBy)}</div>
+                    <div className="truncate text-sm font-medium">{x.patients?.full_name ?? "Unknown"} <span className="text-muted-foreground">· {x.request_code}</span></div>
+                    <div className="text-xs text-muted-foreground">{x.wards?.ward_name ?? "No ward"}{x.required_by && ` · by ${fmt(x.required_by)}`}</div>
                   </div>
-                  <div className="flex flex-col items-end gap-1"><StatusBadge label={r.urgency} /><StatusBadge label={r.status} /></div>
+                  <div className="flex flex-col items-end gap-1"><StatusBadge label={x.urgency} /><StatusBadge label={x.status} /></div>
                 </Link>
               ))}
             </div>
           )}
         </section>
-        {role !== "ward" && (
-          <section>
-            <h2 className="mb-3 font-semibold">Units expiring soon</h2>
-            {expiring.length === 0 ? <EmptyState title="Nothing expiring soon" /> : (
-              <div className="divide-y rounded-xl border bg-card shadow-sm">
-                {expiring.sort((a, b) => a.expiresAt.localeCompare(b.expiresAt)).map((u) => (
-                  <Link key={u.id} to="/inventory/$unitId" params={{ unitId: u.id }} className="flex items-center justify-between gap-3 p-3 hover:bg-secondary/50">
-                    <div className="text-sm"><span className="font-medium">{u.id}</span> <span className="text-muted-foreground">· {u.group} {u.component}</span></div>
-                    <StatusBadge label={expiresIn(hoursLeft(u))} tone="warning" />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+        <section>
+          <h2 className="mb-3 font-semibold">Units expiring soon <span className="text-xs font-normal text-muted-foreground">(72 h, platelets 24 h)</span></h2>
+          {expiring.length === 0 ? <EmptyState title="Nothing expiring soon" /> : (
+            <div className="divide-y rounded-xl border bg-card shadow-sm">
+              {expiring.map((x) => (
+                <Link key={x.id} to="/inventory/$unitId" params={{ unitId: x.id }} className="flex items-center justify-between gap-3 p-3 hover:bg-secondary/50">
+                  <div className="text-sm"><span className="font-medium">{x.unit_number}</span> <span className="text-muted-foreground">· {unitGroup(x)} {x.component}</span></div>
+                  <StatusBadge label={expiresIn(hoursLeft(x))} tone="warning" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

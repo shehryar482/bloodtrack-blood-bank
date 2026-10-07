@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Activity, FileCheck2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/bt/AuthLayout";
-import { HOSPITAL } from "@/lib/mock-data";
+import { HOSPITAL } from "@/lib/constants";
 import { seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({

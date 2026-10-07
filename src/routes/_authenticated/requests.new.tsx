@@ -1,128 +1,161 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { z } from "zod";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ConfirmDialog } from "@/components/bt/ConfirmDialog";
-import { RoleGate } from "@/components/bt/AppShell";
 import { PageHeader, FormSection, Field } from "@/components/bt/ui";
-import { useStore, nowIso } from "@/lib/store";
-import { COMPONENTS, NOW, type Component, type Urgency } from "@/lib/mock-data";
+import { PatientDialog } from "@/components/bt/PatientDialog";
+import { usePatients, useWards, useRefresh, groupOf, nextRequestCode, type PatientRow } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
+import { COMPONENTS, URGENCIES, type Component, type Urgency } from "@/lib/constants";
 import { seo } from "@/lib/seo";
-import { format } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/requests/new")({
   head: () => seo("New blood request", "Raise a new blood component request for a patient."),
-  component: () => <RoleGate roles={["ward"]}><NewRequest /></RoleGate>,
+  component: NewRequest,
 });
-
-const schema = z.object({
-  name: z.string().trim().min(2, "Enter patient name").max(80),
-  relation: z.string().trim().min(2, "Enter father/husband name").max(80),
-  mrNo: z.string().trim().regex(/^DGH-\d{4}-\d{6}$/, "Format must be DGH-YYYY-NNNNNN"),
-  age: z.coerce.number({ invalid_type_error: "Enter age" }).int("Whole number").min(0, "0–120").max(120, "0–120"),
-  gender: z.enum(["Male", "Female", "Other"], { errorMap: () => ({ message: "Select gender" }) }),
-  bed: z.string().trim().min(1, "Enter bed").max(20),
-  indication: z.string().trim().min(3, "Enter indication").max(300),
-  hb: z.union([z.literal(""), z.coerce.number().min(1, "1–25").max(25, "1–25")]),
-  plt: z.union([z.literal(""), z.coerce.number().min(0, "0–2000").max(2000, "0–2000")]),
-  requiredBy: z.string().min(1, "Select date and time"),
-  doctor: z.string().trim().min(3, "Enter doctor name").max(80),
-});
-
-type Form = Record<keyof z.infer<typeof schema>, string>;
-const empty: Form = { name: "", relation: "", mrNo: "", age: "", gender: "", bed: "", indication: "", hb: "", plt: "", requiredBy: format(NOW + 4 * 3600_000, "yyyy-MM-dd'T'HH:mm"), doctor: "" };
 
 function NewRequest() {
-  const { ward, addRequest, nextRequestId, user, actor } = useStore();
   const navigate = useNavigate();
-  const [f, setF] = useState<Form>(empty);
-  const [items, setItems] = useState<{ component: Component; units: number }[]>([{ component: "PRBC", units: 1 }]);
+  const refresh = useRefresh();
+  const { data: patients = [] } = usePatients();
+  const { data: wards = [] } = useWards();
+  const [mrQuery, setMrQuery] = useState("");
+  const [patient, setPatient] = useState<PatientRow | null>(null);
+  const [addPatient, setAddPatient] = useState(false);
+  const [wardId, setWardId] = useState("");
+  const [bed, setBed] = useState("");
+  const [doctor, setDoctor] = useState("");
+  const [indication, setIndication] = useState("");
+  const [requiredBy, setRequiredBy] = useState(() => format(Date.now() + 4 * 3600_000, "yyyy-MM-dd'T'HH:mm"));
   const [urgency, setUrgency] = useState<Urgency>("Routine");
   const [uncross, setUncross] = useState(false);
-  const [reason, setReason] = useState("");
-  const [responsible, setResponsible] = useState(false);
+  const [items, setItems] = useState<{ component: Component; qty: number }[]>([{ component: "PRBC", qty: 1 }]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
-  const set = (k: keyof Form) => (v: string) => { setF((p) => ({ ...p, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
+  const matches = useMemo(() => {
+    const s = mrQuery.trim().toLowerCase();
+    if (!s) return [];
+    return patients.filter((p) => p.mr_number.toLowerCase().includes(s) || p.full_name.toLowerCase().includes(s)).slice(0, 6);
+  }, [patients, mrQuery]);
 
   const validate = () => {
     const e: Record<string, string> = {};
-    const r = schema.safeParse(f);
-    if (!r.success) r.error.issues.forEach((i) => { e[i.path[0] as string] ??= i.message; });
+    if (!patient) e.patient = "Pick or add a patient";
+    if (!wardId) e.ward = "Select a ward";
+    if (doctor.trim().length < 3) e.doctor = "Enter doctor name";
+    if (indication.trim().length < 3) e.indication = "Enter indication";
     if (items.length === 0) e.items = "Add at least one component";
-    if (items.some((i) => !i.units || i.units < 1 || i.units > 10)) e.items = "Units must be 1–10";
-    if (new Set(items.map((i) => i.component)).size !== items.length) e.items = "Each component only once";
-    if (urgency === "Emergency" && uncross) {
-      if (reason.trim().length < 5) e.reason = "Give a reason for emergency release";
-      if (!responsible) e.responsible = "You must accept responsibility";
-      if (items.some((i) => i.component !== "PRBC")) e.items = "Uncrossmatched release is PRBC (O-negative) only";
-    }
+    else if (items.some((i) => !Number.isInteger(i.qty) || i.qty < 1 || i.qty > 10)) e.items = "Quantity must be 1–10";
+    else if (new Set(items.map((i) => i.component)).size !== items.length) e.items = "Each component only once";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const submit = () => {
-    const id = nextRequestId();
-    const isUncross = urgency === "Emergency" && uncross;
-    addRequest({
-      id,
-      patient: { name: f.name.trim(), relation: f.relation.trim(), mrNo: f.mrNo.trim(), age: Number(f.age), gender: f.gender as "Male" },
-      ward, bed: f.bed.trim(), indication: f.indication.trim(),
-      hb: f.hb ? Number(f.hb) : undefined, plt: f.plt ? Number(f.plt) : undefined,
-      items, urgency, requiredBy: new Date(f.requiredBy).toISOString(), doctor: f.doctor.trim(),
-      status: isUncross ? "Pending Approval" : "Submitted",
-      createdAt: nowIso(), uncrossmatched: isUncross, emergencyReason: isUncross ? reason.trim() : undefined,
-      crossmatches: [], issuedUnits: [],
-      log: [{ at: nowIso(), by: actor, text: isUncross ? "Emergency uncrossmatched request submitted" : "Request submitted" }],
-    });
-    toast.success(`Request ${id} submitted`, { description: isUncross ? "Awaiting In-charge approval" : "Blood bank has been notified" });
-    navigate({ to: "/requests/$requestId", params: { requestId: id } });
-  };
+  const save = async () => {
+    if (!validate() || !patient) return;
+    setSaving(true);
+    try {
+      const isUncross = urgency === "Emergency" && uncross;
+      let code = await nextRequestCode();
+      let res = await insertRequest(code);
+      if (res.error?.code === "23505") { code = await nextRequestCode(); res = await insertRequest(code); }
+      if (res.error) throw new Error(res.error.message);
+      const reqId = res.data.id;
+      const { error } = await supabase.from("request_items").insert(items.map((i) => ({ request_id: reqId, component: i.component, quantity_requested: i.qty })));
+      if (error) { await supabase.from("blood_requests").delete().eq("id", reqId); throw new Error(error.message); }
+      await refresh();
+      toast.success(`Request ${code} saved`, { description: isUncross ? "Awaiting In-charge approval" : undefined });
+      navigate({ to: "/requests/$requestId", params: { requestId: reqId } });
+    } catch (e) {
+      toast.error("Could not save request", { description: (e as Error).message });
+    } finally { setSaving(false); }
 
-  const inp = (k: keyof Form, props: React.ComponentProps<typeof Input> = {}) => (
-    <Input value={f[k]} onChange={(e) => set(k)(e.target.value)} aria-invalid={!!errors[k]} {...props} />
-  );
+    function insertRequest(request_code: string) {
+      const isUncross = urgency === "Emergency" && uncross;
+      return supabase.from("blood_requests").insert({
+        request_code, patient_id: patient!.id, ward_id: wardId, requesting_doctor: doctor.trim(),
+        bed_no: bed.trim() || null, indication: indication.trim(), urgency, is_uncrossmatched: isUncross,
+        required_by: requiredBy ? new Date(requiredBy).toISOString() : null,
+        status: isUncross ? "Pending Approval" : "Submitted",
+      }).select("id").single();
+    }
+  };
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="New blood request" description={`Ward: ${ward}`} />
-      <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-        <FormSection title="Patient">
-          <Field label="Patient name" error={errors.name}>{inp("name", { maxLength: 80 })}</Field>
-          <Field label="Father / husband name" error={errors.relation}>{inp("relation", { maxLength: 80 })}</Field>
-          <Field label="MR no." error={errors.mrNo}>{inp("mrNo", { placeholder: "DGH-2026-000000", maxLength: 15 })}</Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Age" error={errors.age}>{inp("age", { type: "number", min: 0, max: 120 })}</Field>
-            <Field label="Gender" error={errors.gender}>
-              <Select value={f.gender} onValueChange={set("gender")}>
-                <SelectTrigger aria-invalid={!!errors.gender}><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{["Male", "Female", "Other"].map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
-          </div>
-          <Field label="Ward"><Input value={ward} disabled /></Field>
-          <Field label="Bed" error={errors.bed}>{inp("bed", { maxLength: 20 })}</Field>
-        </FormSection>
+      <PageHeader title="New blood request" />
+      <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <section className="rounded-xl border bg-card p-4 shadow-sm sm:p-6">
+          <h2 className="font-semibold">Patient</h2>
+          {patient ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-secondary/40 p-3">
+              <div>
+                <div className="font-medium">{patient.full_name} <span className="text-muted-foreground">· {patient.mr_number}</span></div>
+                <div className="text-xs text-muted-foreground">
+                  {[patient.father_or_husband_name, patient.gender, groupOf(patient.abo_group, patient.rh_d)].filter(Boolean).join(" · ") || "No other details"}
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setPatient(null)}>Change</Button>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2">
+              <div className="flex gap-2">
+                <Input placeholder="Search by MR no. or name" value={mrQuery} onChange={(e) => setMrQuery(e.target.value)} maxLength={60} aria-invalid={!!errors.patient} />
+                <Button type="button" variant="outline" onClick={() => setAddPatient(true)}><Plus className="h-4 w-4" /> New patient</Button>
+              </div>
+              {matches.length > 0 && (
+                <div className="divide-y rounded-lg border">
+                  {matches.map((p) => (
+                    <button key={p.id} type="button" onClick={() => { setPatient(p); setErrors((e) => ({ ...e, patient: "" })); }} className="flex w-full justify-between gap-3 p-2.5 text-left text-sm hover:bg-secondary/50">
+                      <span className="font-medium">{p.full_name}</span><span className="text-muted-foreground">{p.mr_number}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {mrQuery.trim() && matches.length === 0 && <p className="text-sm text-muted-foreground">No patient found. Add a new one.</p>}
+              {errors.patient && <p className="text-xs text-brand">{errors.patient}</p>}
+            </div>
+          )}
+        </section>
 
-        <FormSection title="Clinical details">
-          <Field label="Indication" error={errors.indication} full>
-            <Textarea value={f.indication} maxLength={300} onChange={(e) => set("indication")(e.target.value)} aria-invalid={!!errors.indication} />
+        <FormSection title="Location and clinical details">
+          <Field label="Ward" error={errors.ward}>
+            <Select value={wardId} onValueChange={(v) => { setWardId(v); setErrors((e) => ({ ...e, ward: "" })); }}>
+              <SelectTrigger aria-invalid={!!errors.ward}><SelectValue placeholder={wards.length ? "Select ward" : "No wards yet — add them in Settings"} /></SelectTrigger>
+              <SelectContent>{wards.map((w) => <SelectItem key={w.id} value={w.id}>{w.ward_name}</SelectItem>)}</SelectContent>
+            </Select>
           </Field>
-          <Field label="Hb (g/dL) — optional" error={errors.hb}>{inp("hb", { type: "number", step: "0.1" })}</Field>
-          <Field label="Platelet count (×10⁹/L) — optional" error={errors.plt}>{inp("plt", { type: "number" })}</Field>
+          <Field label="Bed"><Input value={bed} onChange={(e) => setBed(e.target.value)} maxLength={20} /></Field>
+          <Field label="Indication" error={errors.indication} full>
+            <Textarea value={indication} maxLength={300} onChange={(e) => setIndication(e.target.value)} aria-invalid={!!errors.indication} />
+          </Field>
+          <Field label="Requesting doctor" error={errors.doctor}><Input value={doctor} onChange={(e) => setDoctor(e.target.value)} maxLength={80} placeholder="Dr. ..." /></Field>
+          <Field label="Required by"><Input type="datetime-local" value={requiredBy} onChange={(e) => setRequiredBy(e.target.value)} /></Field>
+          <Field label="Urgency">
+            <Select value={urgency} onValueChange={(v) => { setUrgency(v as Urgency); if (v !== "Emergency") setUncross(false); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{URGENCIES.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          {urgency === "Emergency" && (
+            <label className="flex items-center justify-between gap-3 self-end rounded-lg border border-brand/30 bg-brand-soft p-3">
+              <span className="text-sm font-medium">Uncrossmatched (needs In-charge approval)</span>
+              <Switch checked={uncross} onCheckedChange={setUncross} />
+            </label>
+          )}
         </FormSection>
 
         <section className="rounded-xl border bg-card p-4 shadow-sm sm:p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Components</h2>
-            <Button type="button" variant="outline" size="sm" onClick={() => setItems([...items, { component: COMPONENTS.find((c) => !items.some((i) => i.component === c)) ?? "FFP", units: 1 }])}><Plus className="h-4 w-4" /> Add</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setItems([...items, { component: COMPONENTS.find((c) => !items.some((i) => i.component === c)) ?? "FFP", qty: 1 }])}><Plus className="h-4 w-4" /> Add</Button>
           </div>
           <div className="mt-4 space-y-3">
             {items.map((it, i) => (
@@ -136,7 +169,7 @@ function NewRequest() {
                 </div>
                 <div className="w-24 space-y-1.5">
                   <label className="text-xs text-muted-foreground">Units</label>
-                  <Input type="number" min={1} max={10} value={it.units} onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, units: Number(e.target.value) } : x)))} />
+                  <Input type="number" min={1} max={10} value={it.qty} onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, qty: Number(e.target.value) } : x)))} />
                 </div>
                 <Button type="button" variant="ghost" size="icon" aria-label="Remove component" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
               </div>
@@ -145,62 +178,12 @@ function NewRequest() {
           </div>
         </section>
 
-        <FormSection title="Urgency and authorisation">
-          <Field label="Urgency">
-            <Select value={urgency} onValueChange={(v) => { setUrgency(v as Urgency); if (v !== "Emergency") setUncross(false); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Routine", "Urgent", "Emergency"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Required by" error={errors.requiredBy}>{inp("requiredBy", { type: "datetime-local" })}</Field>
-          <Field label="Requesting doctor" error={errors.doctor} full>{inp("doctor", { maxLength: 80, placeholder: "Dr. ..." })}</Field>
-          {urgency === "Emergency" && (
-            <div className="space-y-4 rounded-lg border border-brand/30 bg-brand-soft p-4 sm:col-span-2">
-              <label className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">Uncrossmatched (emergency release)</span>
-                <Switch checked={uncross} onCheckedChange={setUncross} />
-              </label>
-              {uncross && (
-                <>
-                  <Field label="Reason for emergency release" error={errors.reason}>
-                    <Textarea value={reason} maxLength={300} onChange={(e) => { setReason(e.target.value); setErrors((x) => ({ ...x, reason: "" })); }} />
-                  </Field>
-                  <label className="flex items-start gap-2 text-sm">
-                    <Checkbox checked={responsible} onCheckedChange={(v) => { setResponsible(!!v); setErrors((x) => ({ ...x, responsible: "" })); }} className="mt-0.5" />
-                    I accept clinical responsibility for transfusing uncrossmatched O-negative blood.
-                  </label>
-                  {errors.responsible && <p className="text-xs text-brand">{errors.responsible}</p>}
-                </>
-              )}
-            </div>
-          )}
-        </FormSection>
-
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => navigate({ to: "/requests" })}>Cancel</Button>
-          {/* Validate first; the dialog only opens when valid. */}
-          <ValidatedSubmit validate={validate} onConfirm={submit} urgency={urgency} name={f.name} />
+          <Button type="button" variant="outline" onClick={() => navigate({ to: "/requests" })}>Cancel</Button>
+          <Button type="submit" variant="brand" disabled={saving}>{saving ? "Saving..." : "Save request"}</Button>
         </div>
       </form>
+      <PatientDialog open={addPatient} patient={null} initialMr={mrQuery.trim()} onClose={() => setAddPatient(false)} onSaved={(p) => { setPatient(p); setErrors((e) => ({ ...e, patient: "" })); }} />
     </div>
-  );
-}
-
-function ValidatedSubmit({ validate, onConfirm, urgency, name }: { validate: () => boolean; onConfirm: () => void; urgency: Urgency; name: string }) {
-  const [ok, setOk] = useState(false);
-  if (!ok) {
-    return <Button type="button" variant="brand" onClick={() => { if (validate()) setOk(true); else toast.error("Please fix the highlighted fields"); }}>Review &amp; submit</Button>;
-  }
-  return (
-    <>
-      <Button type="button" variant="outline" onClick={() => setOk(false)}>Edit</Button>
-      <ConfirmDialog
-        trigger={<Button type="button" variant="brand">Submit request</Button>}
-        title="Submit this blood request?"
-        description={`${urgency} request for ${name}. The blood bank will be notified immediately.`}
-        confirmLabel="Submit"
-        onConfirm={() => { if (validate()) onConfirm(); else setOk(false); }}
-      />
-    </>
   );
 }

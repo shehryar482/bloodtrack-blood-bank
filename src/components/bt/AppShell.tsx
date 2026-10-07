@@ -2,24 +2,25 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  LayoutDashboard, FilePlus2, ClipboardList, Boxes, Send, Clock, BarChart3, Settings, ShieldCheck, Menu, Droplet, Bell, LogOut, UserRound,
+  LayoutDashboard, FilePlus2, ClipboardList, Boxes, Send, Clock, BarChart3, Settings, ShieldCheck, Users, Menu, Droplet, Bell, LogOut, UserRound,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useStore, isExpiring } from "@/lib/store";
+import { useStore } from "@/lib/store";
+import { useUnits, isExpiring } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABEL, HOSPITAL, type Role } from "@/lib/mock-data";
+import { ROLE_LABEL, HOSPITAL, type Role } from "@/lib/constants";
 import { EmptyState } from "./ui";
 
 interface NavItem { to: string; label: string | ((r: Role) => string); icon: typeof Boxes; roles: Role[] }
 export const NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ward", "tech", "incharge"] },
-  { to: "/requests/new", label: "New Request", icon: FilePlus2, roles: ["ward"] },
+  { to: "/requests/new", label: "New Request", icon: FilePlus2, roles: ["ward", "tech", "incharge"] },
+  { to: "/patients", label: "Patients", icon: Users, roles: ["ward", "tech", "incharge"] },
   { to: "/requests", label: (r) => (r === "ward" ? "My Requests" : "Requests"), icon: ClipboardList, roles: ["ward", "tech", "incharge"] },
   { to: "/approvals", label: "Approvals", icon: ShieldCheck, roles: ["tech", "incharge"] },
   { to: "/inventory", label: "Inventory", icon: Boxes, roles: ["tech", "incharge"] },
-  { to: "/issue", label: "Issue", icon: Send, roles: ["tech"] },
+  { to: "/issue", label: "Issue", icon: Send, roles: ["tech", "incharge"] },
   { to: "/expiry", label: "Expiry Alerts", icon: Clock, roles: ["tech", "incharge"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["tech", "incharge"] },
   { to: "/settings", label: "Settings", icon: Settings, roles: ["incharge"] },
@@ -29,7 +30,7 @@ export const NAV: NavItem[] = [
 export function Banner() {
   return (
     <div className="bg-warning-soft px-4 py-1.5 text-center text-xs font-medium text-warning">
-      Prototype - mock data only. Not for clinical use.
+      Prototype. Not for clinical use.
     </div>
   );
 }
@@ -69,7 +70,7 @@ function NavList({ role, onNavigate }: { role: Role; onNavigate?: () => void }) 
 export function RoleGate({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const { role } = useStore();
   if (!role || !roles.includes(role)) {
-    return <EmptyState title="Access not available for this role" description="Switch role from the header if you need this page." action={<Button asChild variant="outline"><Link to="/dashboard">Go to dashboard</Link></Button>} />;
+    return <EmptyState title="Access not available for this role" description="Your role does not include this page." action={<Button asChild variant="outline"><Link to="/dashboard">Go to dashboard</Link></Button>} />;
   }
   return <>{children}</>;
 }
@@ -77,11 +78,12 @@ export function RoleGate({ roles, children }: { roles: Role[]; children: ReactNo
 const PUBLIC_PATHS = ["/", "/signin", "/signup"];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { role, ward, setRole, units, settings } = useStore();
+  const { role } = useStore();
+  const { data: units = [] } = useUnits();
   const { profile, loading, signOut } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const expiringCount = units.filter((u) => isExpiring(u, settings)).length;
+  const expiringCount = units.filter(isExpiring).length;
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -125,12 +127,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
             <div className={role ? "md:hidden" : ""}><Brand /></div>
             <div className="ml-auto flex flex-wrap items-center gap-3">
-              {mounted && role === "ward" && (
-                <Select value={ward} onValueChange={(w) => setRole("ward", w)}>
-                  <SelectTrigger className="h-9 w-[170px]" aria-label="Ward"><SelectValue /></SelectTrigger>
-                  <SelectContent>{settings.wards.map((w) => <SelectItem key={w} value={w}>{w}</SelectItem>)}</SelectContent>
-                </Select>
-              )}
               {mounted && (role === "tech" || role === "incharge") && (
                 <Button asChild variant="ghost" size="icon" className="relative" aria-label={`${expiringCount} units expiring soon`}>
                   <Link to="/expiry">
