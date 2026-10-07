@@ -10,121 +10,126 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApprovalsRouteImport } from './routes/approvals'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ExpiryRouteImport } from './routes/expiry'
-import { Route as IssueRouteImport } from './routes/issue'
-import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as InventoryIndexRouteImport } from './routes/inventory.index'
-import { Route as InventoryUnitIdRouteImport } from './routes/inventory.$unitId'
-import { Route as RequestsIndexRouteImport } from './routes/requests.index'
-import { Route as RequestsRequestIdRouteImport } from './routes/requests.$requestId'
-import { Route as RequestsNewRouteImport } from './routes/requests.new'
+import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedExpiryRouteImport } from './routes/_authenticated/expiry'
+import { Route as AuthenticatedIssueRouteImport } from './routes/_authenticated/issue'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated/inventory.index'
+import { Route as AuthenticatedInventoryUnitIdRouteImport } from './routes/_authenticated/inventory.$unitId'
+import { Route as AuthenticatedRequestsIndexRouteImport } from './routes/_authenticated/requests.index'
+import { Route as AuthenticatedRequestsRequestIdRouteImport } from './routes/_authenticated/requests.$requestId'
+import { Route as AuthenticatedRequestsNewRouteImport } from './routes/_authenticated/requests.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApprovalsRoute = ApprovalsRouteImport.update({
-  id: '/approvals',
+const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
+  id: '/_authenticated/approvals',
   path: '/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/_authenticated/dashboard',
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ExpiryRoute = ExpiryRouteImport.update({
-  id: '/expiry',
+const AuthenticatedExpiryRoute = AuthenticatedExpiryRouteImport.update({
+  id: '/_authenticated/expiry',
   path: '/expiry',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IssueRoute = IssueRouteImport.update({
-  id: '/issue',
+const AuthenticatedIssueRoute = AuthenticatedIssueRouteImport.update({
+  id: '/_authenticated/issue',
   path: '/issue',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsRoute = ReportsRouteImport.update({
-  id: '/reports',
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/_authenticated/reports',
   path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/_authenticated/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InventoryIndexRoute = InventoryIndexRouteImport.update({
-  id: '/inventory/',
-  path: '/inventory/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InventoryUnitIdRoute = InventoryUnitIdRouteImport.update({
-  id: '/inventory/$unitId',
-  path: '/inventory/$unitId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RequestsIndexRoute = RequestsIndexRouteImport.update({
-  id: '/requests/',
-  path: '/requests/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RequestsRequestIdRoute = RequestsRequestIdRouteImport.update({
-  id: '/requests/$requestId',
-  path: '/requests/$requestId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RequestsNewRoute = RequestsNewRouteImport.update({
-  id: '/requests/new',
-  path: '/requests/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedInventoryIndexRoute =
+  AuthenticatedInventoryIndexRouteImport.update({
+    id: '/_authenticated/inventory/',
+    path: '/inventory/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedInventoryUnitIdRoute =
+  AuthenticatedInventoryUnitIdRouteImport.update({
+    id: '/_authenticated/inventory/$unitId',
+    path: '/inventory/$unitId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedRequestsIndexRoute =
+  AuthenticatedRequestsIndexRouteImport.update({
+    id: '/_authenticated/requests/',
+    path: '/requests/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedRequestsRequestIdRoute =
+  AuthenticatedRequestsRequestIdRouteImport.update({
+    id: '/_authenticated/requests/$requestId',
+    path: '/requests/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedRequestsNewRoute =
+  AuthenticatedRequestsNewRouteImport.update({
+    id: '/_authenticated/requests/new',
+    path: '/requests/new',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/approvals': typeof ApprovalsRoute
-  '/dashboard': typeof DashboardRoute
-  '/expiry': typeof ExpiryRoute
-  '/issue': typeof IssueRoute
-  '/reports': typeof ReportsRoute
-  '/settings': typeof SettingsRoute
-  '/inventory/$unitId': typeof InventoryUnitIdRoute
-  '/requests/$requestId': typeof RequestsRequestIdRoute
-  '/requests/new': typeof RequestsNewRoute
-  '/inventory/': typeof InventoryIndexRoute
-  '/requests/': typeof RequestsIndexRoute
+  '/approvals': typeof AuthenticatedApprovalsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/expiry': typeof AuthenticatedExpiryRoute
+  '/issue': typeof AuthenticatedIssueRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/inventory/$unitId': typeof AuthenticatedInventoryUnitIdRoute
+  '/requests/$requestId': typeof AuthenticatedRequestsRequestIdRoute
+  '/requests/new': typeof AuthenticatedRequestsNewRoute
+  '/inventory/': typeof AuthenticatedInventoryIndexRoute
+  '/requests/': typeof AuthenticatedRequestsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/approvals': typeof ApprovalsRoute
-  '/dashboard': typeof DashboardRoute
-  '/expiry': typeof ExpiryRoute
-  '/issue': typeof IssueRoute
-  '/reports': typeof ReportsRoute
-  '/settings': typeof SettingsRoute
-  '/inventory/$unitId': typeof InventoryUnitIdRoute
-  '/requests/$requestId': typeof RequestsRequestIdRoute
-  '/requests/new': typeof RequestsNewRoute
-  '/inventory': typeof InventoryIndexRoute
-  '/requests': typeof RequestsIndexRoute
+  '/approvals': typeof AuthenticatedApprovalsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/expiry': typeof AuthenticatedExpiryRoute
+  '/issue': typeof AuthenticatedIssueRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/inventory/$unitId': typeof AuthenticatedInventoryUnitIdRoute
+  '/requests/$requestId': typeof AuthenticatedRequestsRequestIdRoute
+  '/requests/new': typeof AuthenticatedRequestsNewRoute
+  '/inventory': typeof AuthenticatedInventoryIndexRoute
+  '/requests': typeof AuthenticatedRequestsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/approvals': typeof ApprovalsRoute
-  '/dashboard': typeof DashboardRoute
-  '/expiry': typeof ExpiryRoute
-  '/issue': typeof IssueRoute
-  '/reports': typeof ReportsRoute
-  '/settings': typeof SettingsRoute
-  '/inventory/$unitId': typeof InventoryUnitIdRoute
-  '/requests/$requestId': typeof RequestsRequestIdRoute
-  '/requests/new': typeof RequestsNewRoute
-  '/inventory/': typeof InventoryIndexRoute
-  '/requests/': typeof RequestsIndexRoute
+  '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/expiry': typeof AuthenticatedExpiryRoute
+  '/_authenticated/issue': typeof AuthenticatedIssueRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/inventory/$unitId': typeof AuthenticatedInventoryUnitIdRoute
+  '/_authenticated/requests/$requestId': typeof AuthenticatedRequestsRequestIdRoute
+  '/_authenticated/requests/new': typeof AuthenticatedRequestsNewRoute
+  '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
+  '/_authenticated/requests/': typeof AuthenticatedRequestsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,32 +163,32 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/approvals'
-    | '/dashboard'
-    | '/expiry'
-    | '/issue'
-    | '/reports'
-    | '/settings'
-    | '/inventory/$unitId'
-    | '/requests/$requestId'
-    | '/requests/new'
-    | '/inventory/'
-    | '/requests/'
+    | '/_authenticated/approvals'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/expiry'
+    | '/_authenticated/issue'
+    | '/_authenticated/reports'
+    | '/_authenticated/settings'
+    | '/_authenticated/inventory/$unitId'
+    | '/_authenticated/requests/$requestId'
+    | '/_authenticated/requests/new'
+    | '/_authenticated/inventory/'
+    | '/_authenticated/requests/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApprovalsRoute: typeof ApprovalsRoute
-  DashboardRoute: typeof DashboardRoute
-  ExpiryRoute: typeof ExpiryRoute
-  IssueRoute: typeof IssueRoute
-  ReportsRoute: typeof ReportsRoute
-  SettingsRoute: typeof SettingsRoute
-  InventoryUnitIdRoute: typeof InventoryUnitIdRoute
-  RequestsRequestIdRoute: typeof RequestsRequestIdRoute
-  RequestsNewRoute: typeof RequestsNewRoute
-  InventoryIndexRoute: typeof InventoryIndexRoute
-  RequestsIndexRoute: typeof RequestsIndexRoute
+  AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedExpiryRoute: typeof AuthenticatedExpiryRoute
+  AuthenticatedIssueRoute: typeof AuthenticatedIssueRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedInventoryUnitIdRoute: typeof AuthenticatedInventoryUnitIdRoute
+  AuthenticatedRequestsRequestIdRoute: typeof AuthenticatedRequestsRequestIdRoute
+  AuthenticatedRequestsNewRoute: typeof AuthenticatedRequestsNewRoute
+  AuthenticatedInventoryIndexRoute: typeof AuthenticatedInventoryIndexRoute
+  AuthenticatedRequestsIndexRoute: typeof AuthenticatedRequestsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -195,81 +200,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/approvals': {
-      id: '/approvals'
+    '/_authenticated/approvals': {
+      id: '/_authenticated/approvals'
       path: '/approvals'
       fullPath: '/approvals'
-      preLoaderRoute: typeof ApprovalsRouteImport
+      preLoaderRoute: typeof AuthenticatedApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/expiry': {
-      id: '/expiry'
+    '/_authenticated/expiry': {
+      id: '/_authenticated/expiry'
       path: '/expiry'
       fullPath: '/expiry'
-      preLoaderRoute: typeof ExpiryRouteImport
+      preLoaderRoute: typeof AuthenticatedExpiryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/issue': {
-      id: '/issue'
+    '/_authenticated/issue': {
+      id: '/_authenticated/issue'
       path: '/issue'
       fullPath: '/issue'
-      preLoaderRoute: typeof IssueRouteImport
+      preLoaderRoute: typeof AuthenticatedIssueRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports': {
-      id: '/reports'
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
       path: '/reports'
       fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/inventory/': {
-      id: '/inventory/'
+    '/_authenticated/inventory/': {
+      id: '/_authenticated/inventory/'
       path: '/inventory'
       fullPath: '/inventory/'
-      preLoaderRoute: typeof InventoryIndexRouteImport
+      preLoaderRoute: typeof AuthenticatedInventoryIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/inventory/$unitId': {
-      id: '/inventory/$unitId'
+    '/_authenticated/inventory/$unitId': {
+      id: '/_authenticated/inventory/$unitId'
       path: '/inventory/$unitId'
       fullPath: '/inventory/$unitId'
-      preLoaderRoute: typeof InventoryUnitIdRouteImport
+      preLoaderRoute: typeof AuthenticatedInventoryUnitIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/requests/': {
-      id: '/requests/'
+    '/_authenticated/requests/': {
+      id: '/_authenticated/requests/'
       path: '/requests'
       fullPath: '/requests/'
-      preLoaderRoute: typeof RequestsIndexRouteImport
+      preLoaderRoute: typeof AuthenticatedRequestsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/requests/$requestId': {
-      id: '/requests/$requestId'
+    '/_authenticated/requests/$requestId': {
+      id: '/_authenticated/requests/$requestId'
       path: '/requests/$requestId'
       fullPath: '/requests/$requestId'
-      preLoaderRoute: typeof RequestsRequestIdRouteImport
+      preLoaderRoute: typeof AuthenticatedRequestsRequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/requests/new': {
-      id: '/requests/new'
+    '/_authenticated/requests/new': {
+      id: '/_authenticated/requests/new'
       path: '/requests/new'
       fullPath: '/requests/new'
-      preLoaderRoute: typeof RequestsNewRouteImport
+      preLoaderRoute: typeof AuthenticatedRequestsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -277,17 +282,17 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApprovalsRoute: ApprovalsRoute,
-  DashboardRoute: DashboardRoute,
-  ExpiryRoute: ExpiryRoute,
-  IssueRoute: IssueRoute,
-  ReportsRoute: ReportsRoute,
-  SettingsRoute: SettingsRoute,
-  InventoryUnitIdRoute: InventoryUnitIdRoute,
-  RequestsRequestIdRoute: RequestsRequestIdRoute,
-  RequestsNewRoute: RequestsNewRoute,
-  InventoryIndexRoute: InventoryIndexRoute,
-  RequestsIndexRoute: RequestsIndexRoute,
+  AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedExpiryRoute: AuthenticatedExpiryRoute,
+  AuthenticatedIssueRoute: AuthenticatedIssueRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedInventoryUnitIdRoute: AuthenticatedInventoryUnitIdRoute,
+  AuthenticatedRequestsRequestIdRoute: AuthenticatedRequestsRequestIdRoute,
+  AuthenticatedRequestsNewRoute: AuthenticatedRequestsNewRoute,
+  AuthenticatedInventoryIndexRoute: AuthenticatedInventoryIndexRoute,
+  AuthenticatedRequestsIndexRoute: AuthenticatedRequestsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
