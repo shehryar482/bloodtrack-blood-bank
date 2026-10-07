@@ -11,7 +11,7 @@ import { useStore, nowIso, compatible, isExpired, isReady } from "@/lib/store";
 import { BLOOD_GROUPS, type BloodGroup, type BloodRequest, type RequestStatus } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/requests/$requestId")({
+export const Route = createFileRoute("/_authenticated/requests/$requestId")({
   head: ({ params }) => seo(`Request ${params.requestId}`, "Blood request details, crossmatch results and activity log."),
   component: RequestDetail,
 });

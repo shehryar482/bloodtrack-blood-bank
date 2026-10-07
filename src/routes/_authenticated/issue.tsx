@@ -16,7 +16,7 @@ import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/issue")({
+export const Route = createFileRoute("/_authenticated/issue")({
   validateSearch: z.object({ request: z.string().optional() }),
   head: () => seo("Issue blood", "Issue crossmatched or emergency units with bedside-style double checks."),
   component: () => <RoleGate roles={["tech"]}><IssuePage /></RoleGate>,

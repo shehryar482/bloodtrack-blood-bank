@@ -12,7 +12,7 @@ import { useStore } from "@/lib/store";
 import { COMPONENTS, ROLE_LABEL, type Role, type StaffUser } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/settings")({
+export const Route = createFileRoute("/_authenticated/settings")({
   head: () => seo("Settings", "Manage users, wards, minimum stock levels and expiry alert windows."),
   component: () => <RoleGate roles={["incharge"]}><SettingsPage /></RoleGate>,
 });
