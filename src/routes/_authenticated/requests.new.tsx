@@ -17,7 +17,7 @@ import { COMPONENTS, NOW, type Component, type Urgency } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/requests/new")({
+export const Route = createFileRoute("/_authenticated/requests/new")({
   head: () => seo("New blood request", "Raise a new blood component request for a patient."),
   component: () => <RoleGate roles={["ward"]}><NewRequest /></RoleGate>,
 });

@@ -8,7 +8,7 @@ import { StockGrid } from "@/components/bt/StockGrid";
 import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => seo("Dashboard", "Live blood stock by group and component, pending requests and expiry alerts."),
   component: Dashboard,
 });

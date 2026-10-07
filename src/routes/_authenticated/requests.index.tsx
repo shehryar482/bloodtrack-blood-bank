@@ -10,7 +10,7 @@ import { useStore, ACTIVE_STATUSES, isReady, sortRequests } from "@/lib/store";
 import type { BloodRequest } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/requests/")({
+export const Route = createFileRoute("/_authenticated/requests/")({
   head: () => seo("Blood requests", "Active, ready, issued and cancelled blood requests sorted by urgency."),
   component: RequestsPage,
 });

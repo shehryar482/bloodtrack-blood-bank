@@ -9,7 +9,7 @@ import { useStore, hoursLeft, nowIso } from "@/lib/store";
 import type { Unit } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/expiry")({
+export const Route = createFileRoute("/_authenticated/expiry")({
   head: () => seo("Expiry alerts", "Blood units that are expired or expiring within 24 hours, 72 hours or 7 days."),
   component: () => <RoleGate roles={["tech", "incharge"]}><Expiry /></RoleGate>,
 });

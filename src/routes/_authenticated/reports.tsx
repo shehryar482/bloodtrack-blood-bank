@@ -8,7 +8,7 @@ import { useStore, inStock } from "@/lib/store";
 import { BLOOD_GROUPS, COMPONENTS, MONTHS, MONTH_LABEL, EXPIRED_BY_MONTH, CT_BY_MONTH } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/reports")({
+export const Route = createFileRoute("/_authenticated/reports")({
   head: () => seo("Reports", "Stock by blood group, expired units by component and C/T ratio by ward."),
   component: () => <RoleGate roles={["tech", "incharge"]}><Reports /></RoleGate>,
 });

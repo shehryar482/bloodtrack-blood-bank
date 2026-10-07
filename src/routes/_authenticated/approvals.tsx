@@ -8,7 +8,7 @@ import { useStore, nowIso } from "@/lib/store";
 import { NOW } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/approvals")({
+export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => seo("Emergency approvals", "Approve or reject uncrossmatched emergency blood release requests."),
   component: () => <RoleGate roles={["incharge", "tech"]}><Approvals /></RoleGate>,
 });

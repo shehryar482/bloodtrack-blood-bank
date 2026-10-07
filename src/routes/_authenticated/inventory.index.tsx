@@ -10,7 +10,7 @@ import { useStore, displayStatus, hoursLeft } from "@/lib/store";
 import { BLOOD_GROUPS, COMPONENTS, type Unit } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/inventory/")({
+export const Route = createFileRoute("/_authenticated/inventory/")({
   head: () => seo("Inventory", "Blood unit inventory with filters by group, component, status and expiry window."),
   component: () => <RoleGate roles={["tech", "incharge"]}><InventoryPage /></RoleGate>,
 });

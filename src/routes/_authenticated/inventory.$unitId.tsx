@@ -11,7 +11,7 @@ import { useStore, displayStatus, hoursLeft, nowIso } from "@/lib/store";
 import type { UnitStatus } from "@/lib/mock-data";
 import { seo } from "@/lib/seo";
 
-export const Route = createFileRoute("/inventory/$unitId")({
+export const Route = createFileRoute("/_authenticated/inventory/$unitId")({
   head: ({ params }) => seo(`Unit ${params.unitId}`, "Blood unit details and status timeline."),
   component: () => <RoleGate roles={["tech", "incharge"]}><UnitDetail /></RoleGate>,
 });
