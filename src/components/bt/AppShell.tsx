@@ -23,6 +23,7 @@ export const NAV: NavItem[] = [
   { to: "/expiry", label: "Expiry Alerts", icon: Clock, roles: ["tech", "incharge"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["tech", "incharge"] },
   { to: "/settings", label: "Settings", icon: Settings, roles: ["incharge"] },
+  { to: "/profile", label: "Profile", icon: UserRound, roles: ["ward", "tech", "incharge"] },
 ];
 
 export function Banner() {
@@ -35,7 +36,7 @@ export function Banner() {
 
 function Brand() {
   return (
-    <Link to="/" className="flex items-center gap-2">
+    <Link to="/dashboard" className="flex items-center gap-2">
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-primary-foreground"><Droplet className="h-4 w-4" /></span>
       <span className="leading-tight">
         <span className="block font-semibold">BloodTrack</span>
