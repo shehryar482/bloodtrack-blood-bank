@@ -1,220 +1,207 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/bt/ConfirmDialog";
-import { PageHeader, StatusBadge, ErrorState, InfoRow, Timeline, fmt } from "@/components/bt/ui";
-import { useStore, nowIso, compatible, isExpired, isReady } from "@/lib/store";
-import { BLOOD_GROUPS, type BloodGroup, type BloodRequest, type RequestStatus } from "@/lib/mock-data";
+import { PageHeader, StatusBadge, InfoRow, ErrorState, EmptyState, Field, fmt } from "@/components/bt/ui";
+import { useRequest, useUnits, useRefresh, groupOf, unitGroup, inStock, compatible } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
+import { URGENCIES, CLOSED_STATUSES } from "@/lib/constants";
 import { seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authenticated/requests/$requestId")({
-  head: ({ params }) => seo(`Request ${params.requestId}`, "Blood request details, crossmatch results and activity log."),
-  component: RequestDetail,
+  head: () => seo("Request details", "Blood request details, items, crossmatch and issue."),
+  component: RequestPage,
 });
 
-const FLOW: RequestStatus[] = ["Submitted", "Sample Received", "Crossmatch In Progress", "Ready for Issue", "Issued"];
-
-function RequestDetail() {
+function RequestPage() {
   const { requestId } = Route.useParams();
-  const { requests, role, ward } = useStore();
-  const r = requests.find((x) => x.id === requestId);
-  if (!r || (role === "ward" && r.ward !== ward)) {
-    return <ErrorState title="Request not found" description={`No request "${requestId}" is visible to you.`} backTo="/requests" backLabel="Back to requests" />;
-  }
-  const lab = role === "tech" || role === "incharge";
-  const flow: RequestStatus[] = r.uncrossmatched ? ["Pending Approval", "Approved", "Issued"] : FLOW;
-  const idx = flow.findIndex((s) => r.status.startsWith(s));
+  const { data: r, isLoading, error } = useRequest(requestId);
+  const refresh = useRefresh();
+  const [bed, setBed] = useState("");
+  const [urgency, setUrgency] = useState("Routine");
+  const [indication, setIndication] = useState("");
+
+  useEffect(() => {
+    if (r) { setBed(r.bed_no ?? ""); setUrgency(r.urgency); setIndication(r.indication); }
+  }, [r]);
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error) return <ErrorState title="Could not load request" description={error.message} backTo="/requests" backLabel="Back to requests" />;
+  if (!r) return <ErrorState title="Request not found" backTo="/requests" backLabel="Back to requests" />;
+
+  const dirty = bed !== (r.bed_no ?? "") || urgency !== r.urgency || indication !== r.indication;
+  const saveEdits = async () => {
+    if (indication.trim().length < 3) { toast.error("Indication must be at least 3 characters"); return; }
+    const { error } = await supabase.from("blood_requests").update({ bed_no: bed.trim() || null, urgency, indication: indication.trim() }).eq("id", r.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Request updated"); refresh();
+  };
+  const archive = async (reason: string) => {
+    const { error } = await supabase.from("blood_requests").update({ is_archived: true, archive_reason: reason }).eq("id", r.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${r.request_code} archived`); refresh();
+  };
+  const deleteItem = async (id: string) => {
+    const { error } = await supabase.from("request_items").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Item removed"); refresh();
+  };
+  const p = r.patients;
+  const pGroup = groupOf(p?.abo_group, p?.rh_d);
+  const open = !CLOSED_STATUSES.includes(r.status) && !r.is_archived;
 
   return (
-    <div>
-      <Link to="/requests" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Requests</Link>
-      <PageHeader title={r.id} description={`${r.patient.name} · ${r.ward}`} actions={<><StatusBadge label={r.urgency} className="text-sm" /><StatusBadge label={r.status} className="text-sm" /></>} />
-
-      <ol className="mb-6 flex flex-wrap gap-2">
-        {flow.map((s, i) => (
-          <li key={s} className={`rounded-full border px-3 py-1 text-xs ${i <= idx ? "border-success/30 bg-success-soft text-success" : "text-muted-foreground"}`}>{i + 1}. {s}</li>
-        ))}
-        {(r.status === "Cancelled" || r.status === "Rejected") && <li className="rounded-full border bg-neutral-soft px-3 py-1 text-xs text-neutral">{r.status}{r.rejectReason ? `: ${r.rejectReason}` : ""}</li>}
-      </ol>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 font-semibold">Patient and request</h2>
-            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <InfoRow label="Patient" value={r.patient.name} />
-              <InfoRow label="Father / husband" value={r.patient.relation} />
-              <InfoRow label="MR no." value={r.patient.mrNo} />
-              <InfoRow label="Age / gender" value={`${r.patient.age} · ${r.patient.gender}`} />
-              <InfoRow label="Ward / bed" value={`${r.ward} · ${r.bed}`} />
-              <InfoRow label="Doctor" value={r.doctor} />
-              <InfoRow label="Indication" value={r.indication} />
-              <InfoRow label="Hb / platelets" value={`${r.hb ?? "—"} g/dL · ${r.plt ?? "—"} ×10⁹/L`} />
-              <InfoRow label="Required by" value={fmt(r.requiredBy)} />
-              <InfoRow label="Patient group" value={r.patientGroup ?? "Not yet grouped"} />
-              <InfoRow label="Antibody screen" value={r.antibodyScreen ?? "—"} />
-              {r.approval && <InfoRow label="Approval" value={`${r.approval.type === "verbal" ? "Verbal" : "Formal"} · ${r.approval.by} · ${fmt(r.approval.at)}`} />}
-            </dl>
-            {r.uncrossmatched && <p className="mt-4 rounded-lg bg-brand-soft p-3 text-sm text-brand"><b>Uncrossmatched emergency release.</b> Reason: {r.emergencyReason}</p>}
-          </section>
-
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 font-semibold">Items</h2>
-            <ul className="divide-y text-sm">
-              {r.items.map((i) => {
-                const reserved = r.crossmatches.filter((c) => c.result === "Compatible").length;
-                return <li key={i.component} className="flex justify-between py-2"><span>{i.component}</span><span>{i.units} unit(s){(i.component === "PRBC" || i.component === "Whole Blood") && !r.uncrossmatched ? ` · ${reserved} crossmatched` : ""}</span></li>;
-              })}
-            </ul>
-            {r.issuedUnits.length > 0 && <p className="mt-3 text-sm">Issued units: {r.issuedUnits.join(", ")}</p>}
-          </section>
-
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 font-semibold">Crossmatch</h2>
-            {r.crossmatches.length === 0 ? <p className="text-sm text-muted-foreground">{r.uncrossmatched ? "Crossmatch pending (emergency release)." : "No crossmatch recorded yet."}</p> : (
-              <ul className="divide-y text-sm">
-                {r.crossmatches.map((c, i) => (
-                  <li key={i} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <Link to="/inventory/$unitId" params={{ unitId: c.unitId }} className="font-medium underline-offset-2 hover:underline">{c.unitId}</Link>
-                    <span className="text-xs text-muted-foreground">{fmt(c.at)} · {c.by}</span>
-                    <StatusBadge label={c.result} />
-                  </li>
-                ))}
-              </ul>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <Button asChild variant="ghost" size="sm" className="mb-2"><Link to="/requests"><ArrowLeft className="h-4 w-4" /> Requests</Link></Button>
+        <PageHeader
+          title={r.request_code}
+          description={`Created ${fmt(r.created_at)}`}
+          actions={<>
+            <StatusBadge label={r.urgency} /><StatusBadge label={r.status} />{r.is_archived && <StatusBadge label="Archived" />}
+            {r.status === "Ready for Issue" && !r.is_archived && <Button asChild size="sm" variant="brand"><Link to="/issue" search={{ request: r.id }}>Issue</Link></Button>}
+            {!r.is_archived && (
+              <ConfirmDialog trigger={<Button size="sm" variant="outline">Archive</Button>} title={`Archive ${r.request_code}?`}
+                description="Archived requests are hidden from the list unless you turn on Show archived." requireReason reasonLabel="Archive reason" confirmLabel="Archive" destructive onConfirm={archive} />
             )}
-            {lab && r.status === "Crossmatch In Progress" && <CrossmatchForm r={r} />}
-          </section>
-
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 font-semibold">Activity log</h2>
-            <Timeline items={r.log} />
-          </section>
-        </div>
-        <Actions r={r} />
+          </>}
+        />
+        {r.is_archived && r.archive_reason && <p className="text-sm text-muted-foreground">Archive reason: {r.archive_reason}</p>}
       </div>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <InfoRow label="Patient" value={p?.full_name} />
+          <InfoRow label="MR no." value={p?.mr_number} />
+          <InfoRow label="Patient group" value={pGroup ?? "Not grouped"} />
+          <InfoRow label="Ward" value={r.wards?.ward_name ?? "—"} />
+          <InfoRow label="Doctor" value={r.requesting_doctor} />
+          <InfoRow label="Required by" value={r.required_by ? fmt(r.required_by) : "—"} />
+          {r.is_uncrossmatched && <InfoRow label="Uncrossmatched" value="Yes" />}
+          {r.approved_by && <InfoRow label="Approved by" value={`${r.approved_by} (${r.approval_mode ?? ""})`} />}
+        </dl>
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="mb-4 font-semibold">Edit details</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Bed"><Input value={bed} onChange={(e) => setBed(e.target.value)} maxLength={20} /></Field>
+          <Field label="Urgency">
+            <Select value={urgency} onValueChange={setUrgency}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{URGENCIES.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Indication" full><Textarea value={indication} onChange={(e) => setIndication(e.target.value)} maxLength={300} /></Field>
+        </div>
+        <div className="mt-4 flex justify-end"><Button variant="brand" disabled={!dirty} onClick={saveEdits}>Save changes</Button></div>
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="mb-3 font-semibold">Requested items</h2>
+        {r.request_items.length === 0 ? <p className="text-sm text-muted-foreground">No items.</p> : (
+          <div className="divide-y">
+            {r.request_items.map((i) => (
+              <div key={i.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span><span className="font-medium">{i.component}</span> · {i.quantity_requested} requested · {i.quantity_issued} issued</span>
+                <ConfirmDialog trigger={<Button size="icon" variant="ghost" aria-label="Delete item"><Trash2 className="h-4 w-4" /></Button>}
+                  title={`Delete ${i.quantity_requested}× ${i.component} from ${r.request_code}?`} destructive confirmLabel="Delete" onConfirm={() => deleteItem(i.id)} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="mb-3 font-semibold">Crossmatch tests</h2>
+        {r.crossmatch_tests.length === 0 ? <p className="text-sm text-muted-foreground">No crossmatch tests yet.</p> : (
+          <div className="divide-y">
+            {r.crossmatch_tests.map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span>
+                  <span className="font-medium">{c.blood_units?.unit_number}</span>
+                  <span className="text-muted-foreground"> · {c.blood_units && unitGroup(c.blood_units)} {c.blood_units?.component} · screen {c.antibody_screen} · {fmt(c.tested_at)}</span>
+                </span>
+                <StatusBadge label={c.result} />
+              </div>
+            ))}
+          </div>
+        )}
+        {open && <CrossmatchForm requestId={r.id} patientGroup={pGroup} components={r.request_items.map((i) => i.component)} />}
+      </section>
+
+      {r.issue_records.length > 0 && (
+        <section className="rounded-xl border bg-card p-5 shadow-sm">
+          <h2 className="mb-3 font-semibold">Issued units</h2>
+          <div className="divide-y">
+            {r.issue_records.map((i) => (
+              <div key={i.id} className="py-2 text-sm"><span className="font-medium">{i.blood_units?.unit_number}</span> <span className="text-muted-foreground">· {i.blood_units?.component} · received by {i.received_by} · {fmt(i.issued_at)}</span></div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function Actions({ r }: { r: BloodRequest }) {
-  const { role, user, actor, updateRequest } = useStore();
-  const [group, setGroup] = useState<BloodGroup | "">("");
-  const [ab, setAb] = useState<"Negative" | "Positive" | "Not done" | "">("");
-  const [approver, setApprover] = useState("Dr. Farah Siddiqui");
-  const [time, setTime] = useState("12:00");
-  const lab = role === "tech" || role === "incharge";
-  const done = ["Issued", "Cancelled", "Rejected"].includes(r.status);
-  const who = `${r.id} for ${r.patient.name}, ${r.patient.mrNo}`;
-  const push = (status: RequestStatus, text: string, extra: Partial<BloodRequest> = {}) =>
-    updateRequest(r.id, (x) => ({ ...x, ...extra, status, log: [...x.log, { at: nowIso(), by: actor, text }] }));
-
-  return (
-    <section className="h-fit space-y-4 rounded-xl border bg-card p-5 shadow-sm">
-      <h2 className="font-semibold">Actions</h2>
-      {done && <p className="text-sm text-muted-foreground">This request is {r.status.toLowerCase()}.</p>}
-
-      {lab && r.status === "Submitted" && (
-        <ConfirmDialog trigger={<Button className="w-full">Mark sample received</Button>} title={`Mark sample received for ${who}?`} description="Confirm the patient sample has arrived and labels match the request. Status: Submitted → Sample Received."
-          onConfirm={() => { push("Sample Received", "Sample received"); toast.success("Sample received"); }} />
-      )}
-
-      {lab && r.status === "Sample Received" && (
-        <div className="space-y-3">
-          <label className="text-sm font-medium">Patient ABO/Rh</label>
-          <Select value={group} onValueChange={(v) => setGroup(v as BloodGroup)}>
-            <SelectTrigger><SelectValue placeholder="Select group" /></SelectTrigger>
-            <SelectContent>{BLOOD_GROUPS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-          </Select>
-          <label className="text-sm font-medium">Antibody screen</label>
-          <Select value={ab} onValueChange={(v) => setAb(v as typeof ab)}>
-            <SelectTrigger><SelectValue placeholder="Select result" /></SelectTrigger>
-            <SelectContent>{["Negative", "Positive", "Not done"].map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-          </Select>
-          <ConfirmDialog trigger={<Button className="w-full" disabled={!group || !ab}>Save grouping</Button>} title={`Save grouping for ${who}?`} description={`ABO/Rh ${group}, antibody screen ${ab}. Request moves to Crossmatch In Progress.`}
-            onConfirm={() => { push("Crossmatch In Progress", `Grouping ${group}, antibody screen ${ab}`, { patientGroup: group as BloodGroup, antibodyScreen: ab as "Negative" }); toast.success("Grouping recorded"); }} />
-        </div>
-      )}
-
-      {r.status === "Pending Approval" && role === "incharge" && (
-        <div className="space-y-2">
-          <ConfirmDialog trigger={<Button variant="brand" className="w-full">Approve emergency release</Button>} title={`Approve uncrossmatched release of ${r.items.map((i) => `${i.units}× O-neg ${i.component}`).join(", ")} for ${who}?`} description="O-negative PRBC may be issued before crossmatch."
-            onConfirm={() => { push("Approved", "Emergency release approved", { approval: { type: "formal", by: actor, at: nowIso() } }); toast.success("Emergency release approved"); }} />
-        </div>
-      )}
-      {(r.status === "Approved (verbal, awaiting confirmation)") && role === "incharge" && (
-        <ConfirmDialog trigger={<Button className="w-full">Confirm verbal approval</Button>} title={`Confirm verbal approval by ${r.approval?.by ?? "—"} for ${who}?`} onConfirm={() => { push("Approved", "Verbal approval confirmed", { approval: { type: "formal", by: actor, at: nowIso() } }); toast.success("Approval confirmed"); }} />
-      )}
-      {r.status === "Pending Approval" && role === "tech" && (
-        <div className="space-y-2 rounded-lg border p-3">
-          <p className="text-sm font-medium">Log verbal approval</p>
-          <Input value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="Approver" maxLength={80} />
-          <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-          <ConfirmDialog trigger={<Button className="w-full" disabled={approver.trim().length < 3 || !time}>Log verbal approval</Button>} title={`Log verbal approval for ${who}?`} description={`Approved verbally by ${approver} at ${time}. Shown as awaiting In-charge confirmation.`}
-            onConfirm={() => { push("Approved (verbal, awaiting confirmation)", `Verbal approval by ${approver} at ${time} logged`, { approval: { type: "verbal", by: approver.trim(), at: nowIso() } }); toast.success("Verbal approval logged"); }} />
-        </div>
-      )}
-
-      {lab && isReady(r) && role === "tech" && <Button asChild variant="brand" className="w-full"><Link to="/issue" search={{ request: r.id }}>Go to issue</Link></Button>}
-
-      {role === "incharge" && !done && (
-        <ConfirmDialog trigger={<Button variant="outline" className="w-full">Reject request</Button>} title={`Reject ${who}?`} description={`Current status: ${r.status}.`} destructive requireReason reasonLabel="Rejection reason" confirmLabel="Reject"
-          onConfirm={(reason) => { push("Rejected", `Rejected: ${reason}`, { rejectReason: reason }); toast.success(`${r.id} rejected`); }} />
-      )}
-      {role === "ward" && !done && (
-        <ConfirmDialog trigger={<Button variant="outline" className="w-full">Cancel request</Button>} title={`Cancel ${who}?`} description={`Current status: ${r.status}.`} requireReason reasonLabel="Cancellation reason" confirmLabel="Cancel request"
-          onConfirm={(reason) => { push("Cancelled", `Cancelled: ${reason}`, { rejectReason: reason }); toast.success(`${r.id} cancelled`); }} />
-      )}
-      {role === "ward" && !done && <p className="text-xs text-muted-foreground">The blood bank will update this request as it progresses.</p>}
-    </section>
-  );
-}
-
-function CrossmatchForm({ r }: { r: BloodRequest }) {
-  const { units, user, actor, updateRequest, updateUnit } = useStore();
+function CrossmatchForm({ requestId, patientGroup, components }: { requestId: string; patientGroup: ReturnType<typeof groupOf>; components: string[] }) {
+  const { data: units = [] } = useUnits();
+  const refresh = useRefresh();
   const [unitId, setUnitId] = useState("");
-  const [result, setResult] = useState<"Compatible" | "Incompatible" | "">("");
-  const red = r.items.find((i) => i.component === "PRBC" || i.component === "Whole Blood");
-  const needed = red?.units ?? 0;
-  const tested = new Set(r.crossmatches.map((c) => c.unitId));
-  const candidates = units
-    .filter((u) => u.status === "Available" && !isExpired(u) && !tested.has(u.id) && r.items.some((i) => i.component === u.component) && r.patientGroup && compatible(r.patientGroup, u.group, u.component))
-    .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
-  const compatibleCount = r.crossmatches.filter((c) => c.result === "Compatible").length;
+  const [screen, setScreen] = useState("Negative");
+  const [result, setResult] = useState("Compatible");
+  const [saving, setSaving] = useState(false);
+
+  const candidates = units.filter((u) => inStock(u) && (components.length === 0 || components.includes(u.component)))
+    .filter((u) => !patientGroup || compatible(patientGroup, unitGroup(u), u.component));
+
+  const save = async () => {
+    if (!unitId) { toast.error("Choose a unit"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("crossmatch_tests").insert({
+      request_id: requestId, unit_id: unitId, antibody_screen: screen, result,
+      patient_abo: patientGroup ? patientGroup.replace(/[+-]/, "") : null,
+      patient_rh: patientGroup ? (patientGroup.endsWith("+") ? "Pos" : "Neg") : null,
+    });
+    if (error) { setSaving(false); toast.error(error.message); return; }
+    if (result === "Compatible") {
+      await supabase.from("blood_units").update({ status: "Reserved" }).eq("id", unitId);
+      await supabase.from("blood_requests").update({ status: "Ready for Issue" }).eq("id", requestId);
+    } else {
+      await supabase.from("blood_requests").update({ status: "Crossmatch In Progress" }).eq("id", requestId);
+    }
+    setSaving(false); setUnitId("");
+    toast.success(result === "Compatible" ? "Compatible — unit reserved" : "Incompatible result saved");
+    refresh();
+  };
 
   return (
-    <div className="mt-4 space-y-3 rounded-lg border p-3">
-      <p className="text-sm font-medium">Record crossmatch ({compatibleCount}/{needed || "—"} compatible)</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Select value={unitId} onValueChange={setUnitId}>
-          <SelectTrigger><SelectValue placeholder={candidates.length ? "Select unit" : "No compatible units"} /></SelectTrigger>
-          <SelectContent>{candidates.map((u) => <SelectItem key={u.id} value={u.id}>{u.id} · {u.group} {u.component}</SelectItem>)}</SelectContent>
-        </Select>
-        <Select value={result} onValueChange={(v) => setResult(v as typeof result)}>
-          <SelectTrigger><SelectValue placeholder="Result" /></SelectTrigger>
-          <SelectContent><SelectItem value="Compatible">Compatible</SelectItem><SelectItem value="Incompatible">Incompatible</SelectItem></SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <ConfirmDialog trigger={<Button size="sm" disabled={!unitId || !result}>Save crossmatch</Button>} title={`Record crossmatch ${result} for unit ${unitId} against ${r.id} (${r.patient.name}, ${r.patient.mrNo})?`} description={result === "Compatible" ? "The unit will be reserved for this request." : undefined}
-          onConfirm={() => {
-            const ok = result === "Compatible";
-            const nowCount = compatibleCount + (ok ? 1 : 0);
-            const ready = ok && nowCount >= needed;
-            updateRequest(r.id, (x) => ({ ...x, status: ready ? "Ready for Issue" : x.status, crossmatches: [...x.crossmatches, { unitId, result: result as "Compatible", at: nowIso(), by: actor }],
-              log: [...x.log, { at: nowIso(), by: actor, text: `Crossmatch ${unitId}: ${result}` }, ...(ready ? [{ at: nowIso(), by: actor, text: "Ready for issue" }] : [])] }));
-            if (ok) updateUnit(unitId, (u) => ({ ...u, status: "Reserved", reservedFor: r.id, timeline: [...u.timeline, { at: nowIso(), by: actor, text: `Crossmatched compatible, reserved for ${r.id}` }] }));
-            toast.success(`Crossmatch recorded${ready ? " · request ready for issue" : ""}`);
-            setUnitId(""); setResult("");
-          }} />
-        {compatibleCount > 0 && (
-          <ConfirmDialog trigger={<Button size="sm" variant="outline">Mark ready for issue</Button>} title={`Mark ${r.id} (${r.patient.name}, ${r.patient.mrNo}) ready for issue?`}
-            onConfirm={() => { updateRequest(r.id, (x) => ({ ...x, status: "Ready for Issue", log: [...x.log, { at: nowIso(), by: actor, text: "Ready for issue" }] })); toast.success("Ready for issue"); }} />
-        )}
-      </div>
+    <div className="mt-4 rounded-lg border bg-secondary/30 p-4">
+      <h3 className="mb-3 text-sm font-semibold">Record crossmatch</h3>
+      {candidates.length === 0 ? <EmptyState title="No suitable available units" description="Only available, unexpired, ABO-compatible units for the requested components are listed." /> : (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="sm:col-span-2">
+            <Select value={unitId} onValueChange={setUnitId}>
+              <SelectTrigger><SelectValue placeholder="Choose unit" /></SelectTrigger>
+              <SelectContent>{candidates.map((u) => <SelectItem key={u.id} value={u.id}>{u.unit_number} · {unitGroup(u)} {u.component}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <Select value={screen} onValueChange={setScreen}>
+            <SelectTrigger aria-label="Antibody screen"><SelectValue /></SelectTrigger>
+            <SelectContent>{["Negative", "Positive", "Not done"].map((s) => <SelectItem key={s} value={s}>Screen: {s}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={result} onValueChange={setResult}>
+            <SelectTrigger aria-label="Result"><SelectValue /></SelectTrigger>
+            <SelectContent>{["Compatible", "Incompatible"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="sm:col-span-4 flex justify-end"><Button variant="brand" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save crossmatch"}</Button></div>
+        </div>
+      )}
     </div>
   );
 }

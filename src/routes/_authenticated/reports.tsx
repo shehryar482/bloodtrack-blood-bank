@@ -1,31 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RoleGate } from "@/components/bt/AppShell";
-import { PageHeader } from "@/components/bt/ui";
-import { useStore, inStock } from "@/lib/store";
-import { BLOOD_GROUPS, COMPONENTS, MONTHS, MONTH_LABEL, EXPIRED_BY_MONTH, CT_BY_MONTH } from "@/lib/mock-data";
+import { PageHeader, StatCard } from "@/components/bt/ui";
+import { useUnits, useRequests, useIssues, inStock, unitGroup } from "@/lib/db";
+import { BLOOD_GROUPS, COMPONENTS, REQUEST_STATUSES } from "@/lib/constants";
 import { seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authenticated/reports")({
-  head: () => seo("Reports", "Stock by blood group, expired units by component and C/T ratio by ward."),
-  component: () => <RoleGate roles={["tech", "incharge"]}><Reports /></RoleGate>,
+  head: () => seo("Reports", "Live stock, discard, request and issue reports."),
+  component: Reports,
 });
 
-function Chart({ title, data, x, y, color, note }: { title: string; data: object[]; x: string; y: string; color: string; note?: string }) {
+function Chart({ title, data, dataKey = "value" }: { title: string; data: { name: string; value: number }[]; dataKey?: string }) {
   return (
     <section className="rounded-xl border bg-card p-5 shadow-sm">
-      <h2 className="font-semibold">{title}</h2>
-      {note && <p className="text-xs text-muted-foreground">{note}</p>}
-      <div className="mt-4 h-64">
+      <h2 className="mb-4 font-semibold">{title}</h2>
+      <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-            <XAxis dataKey={x} tick={{ fontSize: 11 }} interval={0} angle={data.length > 6 ? -30 : 0} textAnchor={data.length > 6 ? "end" : "middle"} height={data.length > 6 ? 70 : 30} />
-            <YAxis tick={{ fontSize: 11 }} allowDecimals />
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey={y} fill={color} radius={[4, 4, 0, 0]} />
+            <Bar dataKey={dataKey} fill="var(--color-brand)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -34,27 +30,26 @@ function Chart({ title, data, x, y, color, note }: { title: string; data: object
 }
 
 function Reports() {
-  const { units } = useStore();
-  const [month, setMonth] = useState("2026-10");
-  const stock = BLOOD_GROUPS.map((g) => ({ group: g, units: units.filter((u) => u.group === g && inStock(u)).length }));
-  const expired = COMPONENTS.map((c) => ({ component: c, units: EXPIRED_BY_MONTH[month][c] }));
-  const ct = Object.entries(CT_BY_MONTH[month]).map(([ward, [x, t]]) => ({ ward, ratio: Math.round((x / t) * 10) / 10 }));
+  const { data: units = [] } = useUnits();
+  const { data: requests = [] } = useRequests();
+  const { data: issues = [] } = useIssues();
+  const stock = units.filter(inStock);
+  const discarded = units.filter((u) => u.status === "Discarded" || u.status === "Expired");
 
   return (
-    <div>
-      <PageHeader title="Reports" description="Fictional figures for demonstration."
-        actions={
-          <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>{MONTHS.map((m) => <SelectItem key={m} value={m}>{MONTH_LABEL[m]}</SelectItem>)}</SelectContent>
-          </Select>
-        } />
+    <div className="space-y-6">
+      <PageHeader title="Reports" description="Live figures from your blood bank records." />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Units in stock" value={stock.length} />
+        <StatCard label="Requests (active)" value={requests.filter((r) => !r.is_archived).length} />
+        <StatCard label="Units issued" value={issues.length} />
+        <StatCard label="Discarded / expired" value={discarded.length} />
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Chart title="Current stock by blood group" note="Live, available unexpired units" data={stock} x="group" y="units" color="var(--brand)" />
-        <Chart title={`Expired in ${MONTH_LABEL[month]} by component`} data={expired} x="component" y="units" color="var(--neutral)" />
-        <div className="lg:col-span-2">
-          <Chart title={`Crossmatch / transfusion (C/T) ratio by ward · ${MONTH_LABEL[month]}`} note="Target ≤ 2.0" data={ct} x="ward" y="ratio" color="var(--info)" />
-        </div>
+        <Chart title="Stock by blood group" data={BLOOD_GROUPS.map((g) => ({ name: g, value: stock.filter((u) => unitGroup(u) === g).length }))} />
+        <Chart title="Stock by component" data={COMPONENTS.map((c) => ({ name: c, value: stock.filter((u) => u.component === c).length }))} />
+        <Chart title="Discarded or expired by component" data={COMPONENTS.map((c) => ({ name: c, value: discarded.filter((u) => u.component === c).length }))} />
+        <Chart title="Requests by status" data={REQUEST_STATUSES.map((s) => ({ name: s.replace("Crossmatch In Progress", "Crossmatch"), value: requests.filter((r) => r.status === s && !r.is_archived).length })).filter((d) => d.value > 0)} />
       </div>
     </div>
   );
