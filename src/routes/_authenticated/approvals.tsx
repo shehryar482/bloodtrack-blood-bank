@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/bt/ConfirmDialog";
@@ -20,7 +21,7 @@ function Approvals() {
   const refresh = useRefresh();
   const pending = data.filter((r) => !r.is_archived && r.status === "Pending Approval");
 
-  const decide = async (id: string, patch: Record<string, unknown>, msg: string) => {
+  const decide = async (id: string, patch: TablesUpdate<"blood_requests">, msg: string) => {
     const { error } = await supabase.from("blood_requests").update(patch).eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success(msg); refresh();
